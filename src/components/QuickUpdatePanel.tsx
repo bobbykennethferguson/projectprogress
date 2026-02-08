@@ -15,7 +15,7 @@ interface Props {
 }
 
 const DEAD_ZONE = 10; // px of movement before drag visual kicks in
-const DISMISS_RATIO = 0.5; // must drag 50% of panel height to dismiss
+const DISMISS_RATIO = 0.25; // must drag 25% of panel height to dismiss
 const RUBBER_BAND = 0.55; // drag resistance factor
 
 export default function QuickUpdatePanel({ jobId, onClose, onJobChanged }: Props) {
