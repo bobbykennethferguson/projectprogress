@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getJob, toggleMilestone, groupByPhase, calcProgress,
   getWeightedMode, getPhaseWeights, saveJobNotes, saveJobPhotos,
@@ -14,8 +14,15 @@ interface Props {
   onJobChanged: () => void;
 }
 
+const SWIPE_CLOSE_THRESHOLD = 120; // px
+
 export default function QuickUpdatePanel({ jobId, onClose, onJobChanged }: Props) {
   const [job, setJob] = useState<Job | undefined>(() => getJob(jobId));
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartY = useRef(0);
+  const touchStartScrollTop = useRef(0);
 
   const refresh = useCallback(() => {
     const fresh = getJob(jobId);
@@ -38,6 +45,41 @@ export default function QuickUpdatePanel({ jobId, onClose, onJobChanged }: Props
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  // Swipe-down-to-close for mobile bottom sheet
+  function handleTouchStart(e: React.TouchEvent) {
+    const scrollBody = panelRef.current?.querySelector('.qup-body');
+    touchStartY.current = e.touches[0].clientY;
+    touchStartScrollTop.current = scrollBody?.scrollTop ?? 0;
+    setIsDragging(false);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    const delta = e.touches[0].clientY - touchStartY.current;
+    // Only allow drag-down when scrollable content is at top
+    if (touchStartScrollTop.current <= 0 && delta > 0) {
+      setDragY(delta);
+      setIsDragging(true);
+      // Prevent scroll while dragging the sheet
+      e.preventDefault();
+    } else if (isDragging && delta > 0) {
+      setDragY(delta);
+      e.preventDefault();
+    } else {
+      // User is scrolling up inside the panel, reset drag
+      setDragY(0);
+      setIsDragging(false);
+    }
+  }
+
+  function handleTouchEnd() {
+    if (dragY >= SWIPE_CLOSE_THRESHOLD) {
+      onClose();
+    } else {
+      setDragY(0);
+    }
+    setIsDragging(false);
+  }
 
   if (!job) return null;
 
@@ -78,7 +120,15 @@ export default function QuickUpdatePanel({ jobId, onClose, onJobChanged }: Props
   return (
     <>
       <div className="qup-backdrop" onClick={onClose} />
-      <div className="qup-panel">
+      <div
+        className={`qup-panel${isDragging ? ' qup-dragging' : ''}`}
+        ref={panelRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : undefined}
+      >
+        <div className="qup-drag-handle"><span /></div>
         <div className="qup-header">
           <div className="qup-header-info">
             <h2 className="qup-title">{job.jobName}</h2>

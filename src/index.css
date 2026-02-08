@@ -951,6 +951,17 @@ input:focus {
   }
 }
 
+/* Drag handle (visible on mobile only) */
+.qup-drag-handle {
+  display: none;
+}
+
+/* Disable transition during active drag */
+.qup-panel.qup-dragging {
+  transition: none !important;
+  animation: none !important;
+}
+
 /* Mobile: bottom sheet instead of side drawer */
 @media (max-width: 767px) {
   .qup-panel {
@@ -962,18 +973,34 @@ input:focus {
     height: 85vh;
     border-radius: 16px 16px 0 0;
     animation: qup-slide-up 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.2s ease;
+    touch-action: none;
   }
   @keyframes qup-slide-up {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
   }
+  .qup-drag-handle {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 4px;
+    cursor: grab;
+    flex-shrink: 0;
+  }
+  .qup-drag-handle span {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+  }
   .qup-header {
-    padding: 16px 16px 12px;
+    padding: 8px 16px 12px;
   }
   .qup-progress {
     padding: 12px 16px;
   }
   .qup-body {
     padding: 12px 16px 32px;
+    touch-action: pan-y;
   }
 }
