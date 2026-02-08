@@ -956,12 +956,6 @@ input:focus {
   display: none;
 }
 
-/* Disable transition during active drag */
-.qup-panel.qup-dragging {
-  transition: none !important;
-  animation: none !important;
-}
-
 /* Mobile: bottom sheet instead of side drawer */
 @media (max-width: 767px) {
   .qup-panel {

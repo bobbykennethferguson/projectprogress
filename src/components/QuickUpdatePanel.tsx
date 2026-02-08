@@ -14,15 +14,19 @@ interface Props {
   onJobChanged: () => void;
 }
 
-const SWIPE_CLOSE_THRESHOLD = 120; // px
+const DEAD_ZONE = 10; // px of movement before drag visual kicks in
+const DISMISS_RATIO = 0.5; // must drag 50% of panel height to dismiss
+const RUBBER_BAND = 0.55; // drag resistance factor
 
 export default function QuickUpdatePanel({ jobId, onClose, onJobChanged }: Props) {
   const [job, setJob] = useState<Job | undefined>(() => getJob(jobId));
   const panelRef = useRef<HTMLDivElement>(null);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
   const touchStartScrollTop = useRef(0);
+  const dragActive = useRef(false);
+  const currentDragY = useRef(0);
+  const closingRef = useRef(false);
 
   const refresh = useCallback(() => {
     const fresh = getJob(jobId);
@@ -46,39 +50,98 @@ export default function QuickUpdatePanel({ jobId, onClose, onJobChanged }: Props
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  // Swipe-down-to-close for mobile bottom sheet
+  // Swipe-down-to-close for mobile bottom sheet — uses direct DOM for smooth 60fps
   function handleTouchStart(e: React.TouchEvent) {
+    if (closingRef.current) return;
     const scrollBody = panelRef.current?.querySelector('.qup-body');
     touchStartY.current = e.touches[0].clientY;
     touchStartScrollTop.current = scrollBody?.scrollTop ?? 0;
-    setIsDragging(false);
+    dragActive.current = false;
+    currentDragY.current = 0;
+    // Remove snap-back transition during fresh touch
+    if (panelRef.current) {
+      panelRef.current.style.transition = 'none';
+    }
   }
 
   function handleTouchMove(e: React.TouchEvent) {
-    const delta = e.touches[0].clientY - touchStartY.current;
-    // Only allow drag-down when scrollable content is at top
-    if (touchStartScrollTop.current <= 0 && delta > 0) {
-      setDragY(delta);
-      setIsDragging(true);
-      // Prevent scroll while dragging the sheet
-      e.preventDefault();
-    } else if (isDragging && delta > 0) {
-      setDragY(delta);
-      e.preventDefault();
-    } else {
-      // User is scrolling up inside the panel, reset drag
-      setDragY(0);
-      setIsDragging(false);
+    if (closingRef.current) return;
+    const rawDelta = e.touches[0].clientY - touchStartY.current;
+
+    // If content is scrolled down, don't interfere — let normal scroll work
+    if (touchStartScrollTop.current > 0) return;
+
+    // Only engage drag when pulling down
+    if (rawDelta <= 0) {
+      if (dragActive.current) {
+        // User reversed direction back up, reset
+        dragActive.current = false;
+        currentDragY.current = 0;
+        if (panelRef.current) {
+          panelRef.current.style.transform = '';
+        }
+        if (backdropRef.current) {
+          backdropRef.current.style.opacity = '';
+        }
+      }
+      return;
+    }
+
+    // Dead zone: ignore tiny movements to avoid jitter
+    if (!dragActive.current && rawDelta < DEAD_ZONE) return;
+
+    // We're dragging
+    dragActive.current = true;
+    e.preventDefault();
+
+    // Apply rubber-band resistance so it feels weighted
+    const effectiveDelta = rawDelta * RUBBER_BAND;
+    currentDragY.current = effectiveDelta;
+
+    // Direct DOM update — no React re-render
+    if (panelRef.current) {
+      panelRef.current.style.transform = `translateY(${effectiveDelta}px)`;
+    }
+    // Fade backdrop proportionally
+    if (backdropRef.current && panelRef.current) {
+      const panelH = panelRef.current.offsetHeight;
+      const progress = Math.min(effectiveDelta / panelH, 1);
+      backdropRef.current.style.opacity = String(1 - progress * 0.6);
     }
   }
 
   function handleTouchEnd() {
-    if (dragY >= SWIPE_CLOSE_THRESHOLD) {
-      onClose();
+    if (closingRef.current) return;
+    if (!dragActive.current) return;
+
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const panelH = panel.offsetHeight;
+    const draggedRatio = currentDragY.current / panelH;
+
+    if (draggedRatio >= DISMISS_RATIO) {
+      // Animate off-screen then close
+      closingRef.current = true;
+      panel.style.transition = 'transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)';
+      panel.style.transform = `translateY(${panelH}px)`;
+      if (backdropRef.current) {
+        backdropRef.current.style.transition = 'opacity 0.25s ease';
+        backdropRef.current.style.opacity = '0';
+      }
+      setTimeout(onClose, 250);
     } else {
-      setDragY(0);
+      // Snap back with smooth transition
+      panel.style.transition = 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)';
+      panel.style.transform = '';
+      if (backdropRef.current) {
+        backdropRef.current.style.transition = 'opacity 0.3s ease';
+        backdropRef.current.style.opacity = '';
+      }
     }
-    setIsDragging(false);
+
+    dragActive.current = false;
+    currentDragY.current = 0;
   }
 
   if (!job) return null;
@@ -119,14 +182,13 @@ export default function QuickUpdatePanel({ jobId, onClose, onJobChanged }: Props
 
   return (
     <>
-      <div className="qup-backdrop" onClick={onClose} />
+      <div className="qup-backdrop" ref={backdropRef} onClick={onClose} />
       <div
-        className={`qup-panel${isDragging ? ' qup-dragging' : ''}`}
+        className="qup-panel"
         ref={panelRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : undefined}
       >
         <div className="qup-drag-handle"><span /></div>
         <div className="qup-header">
