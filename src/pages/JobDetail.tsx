@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   getJob, toggleMilestone, calcProgress, groupByPhase,
-  getWeightedMode, getPhaseWeights, updateJob, applyTemplateToJob, deleteJob
+  getWeightedMode, getPhaseWeights, updateJob, applyTemplateToJob, deleteJob,
+  saveJobNotes, saveJobPhotos
 } from '../store.ts';
 import type { Job } from '../types.ts';
 import ProgressBar from '../components/ProgressBar.tsx';
+import JobNotes from '../components/JobNotes.tsx';
+import PhotoGrid from '../components/PhotoGrid.tsx';
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
@@ -62,6 +65,16 @@ export default function JobDetail() {
     if (!confirm('Delete this job?')) return;
     deleteJob(job!.id);
     navigate('/');
+  }
+
+  function handleSaveNotes(notes: string) {
+    saveJobNotes(job!.id, notes);
+    setJob(getJob(job!.id));
+  }
+
+  function handlePhotosChange(photos: string[]) {
+    saveJobPhotos(job!.id, photos);
+    setJob(getJob(job!.id));
   }
 
   function formatTimestamp(ts: string | null): string {
@@ -135,6 +148,10 @@ export default function JobDetail() {
           );
         })}
       </div>
+
+      <JobNotes notes={job.notes ?? ''} onSave={handleSaveNotes} />
+
+      <PhotoGrid photos={job.photos ?? []} onPhotosChange={handlePhotosChange} />
     </div>
   );
 }

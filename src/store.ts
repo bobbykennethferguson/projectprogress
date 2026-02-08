@@ -48,13 +48,17 @@ export function addJob(jobName: string, customerName: string, dueDate: string | 
     isComplete: false,
     completedAt: null,
   }));
+  const now = new Date().toISOString();
   const job: Job = {
     id: generateId(),
     jobName,
     customerName,
     dueDate,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
     milestones,
+    notes: '',
+    photos: [],
   };
   data.jobs.unshift(job);
   saveData(data);
@@ -68,12 +72,31 @@ export function updateJob(id: string, updates: Partial<Pick<Job, 'jobName' | 'cu
   if (updates.jobName !== undefined) job.jobName = updates.jobName;
   if (updates.customerName !== undefined) job.customerName = updates.customerName;
   if (updates.dueDate !== undefined) job.dueDate = updates.dueDate;
+  job.updatedAt = new Date().toISOString();
   saveData(data);
 }
 
 export function deleteJob(id: string): void {
   const data = loadData();
   data.jobs = data.jobs.filter(j => j.id !== id);
+  saveData(data);
+}
+
+export function saveJobNotes(id: string, notes: string): void {
+  const data = loadData();
+  const job = data.jobs.find(j => j.id === id);
+  if (!job) return;
+  job.notes = notes;
+  job.updatedAt = new Date().toISOString();
+  saveData(data);
+}
+
+export function saveJobPhotos(id: string, photos: string[]): void {
+  const data = loadData();
+  const job = data.jobs.find(j => j.id === id);
+  if (!job) return;
+  job.photos = photos;
+  job.updatedAt = new Date().toISOString();
   saveData(data);
 }
 

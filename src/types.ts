@@ -13,7 +13,10 @@ export interface Job {
   customerName: string;
   dueDate: string | null;
   createdAt: string;
+  updatedAt: string;
   milestones: Milestone[];
+  notes: string;
+  photos: string[];
 }
 
 export interface TemplateMilestone {
