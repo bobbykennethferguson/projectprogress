@@ -8,6 +8,7 @@ import {
 import type { Job } from '../types.ts';
 import type { JobFilters } from '../store.ts';
 import ProgressBar from '../components/ProgressBar.tsx';
+import QuickUpdatePanel from '../components/QuickUpdatePanel.tsx';
 
 export default function JobsOverview() {
   const [jobs, setJobs] = useState<Job[]>(getJobs);
@@ -17,6 +18,7 @@ export default function JobsOverview() {
   const [customerName, setCustomerName] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [filters, setFilters] = useState<JobFilters>(getJobFilters);
+  const [quickUpdateId, setQuickUpdateId] = useState<string | null>(null);
 
   const weighted = getWeightedMode();
   const weights = getPhaseWeights();
@@ -243,10 +245,24 @@ export default function JobsOverview() {
               >
                 Delete
               </button>
+              <button
+                className="quick-update-btn"
+                onClick={(e) => { e.preventDefault(); setQuickUpdateId(job.id); }}
+              >
+                Quick Update
+              </button>
             </div>
           );
         })}
       </div>
+
+      {quickUpdateId && (
+        <QuickUpdatePanel
+          jobId={quickUpdateId}
+          onClose={() => setQuickUpdateId(null)}
+          onJobChanged={() => setJobs(getJobs())}
+        />
+      )}
     </div>
   );
 }
