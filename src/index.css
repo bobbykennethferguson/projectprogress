@@ -10,9 +10,11 @@
 :root {
   --bg: #f5f6fa;
   --surface: #ffffff;
+  --surface-hover: #f8f9fb;
   --text: #1a1a2e;
   --text-muted: #6b7280;
   --border: #e2e5ea;
+  --border-light: #f1f3f5;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --danger: #dc2626;
@@ -20,12 +22,34 @@
   --radius: 10px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --badge-bg: #eff6ff;
+  --badge-text: #1e40af;
+  --complete-bg: #f0fdf4;
+  --complete-text: #16a34a;
+  --progress-track: #e5e7eb;
 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);
+}
+
+.dark {
+  --bg: #111827;
+  --surface: #1f2937;
+  --surface-hover: #283548;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border: #374151;
+  --border-light: #2d3748;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --badge-bg: #1e3a5f;
+  --badge-text: #93c5fd;
+  --complete-bg: #052e16;
+  --complete-text: #4ade80;
+  --progress-track: #374151;
 }
 
 body {
@@ -243,8 +267,8 @@ input:focus {
 }
 .customer-badge {
   display: inline-block;
-  background: #eff6ff;
-  color: #1e40af;
+  background: var(--badge-bg);
+  color: var(--badge-text);
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.78rem;
@@ -261,7 +285,7 @@ input:focus {
   margin-top: 8px;
 }
 .next-milestone.complete {
-  color: #16a34a;
+  color: var(--complete-text);
   font-weight: 500;
 }
 .delete-btn {
@@ -280,7 +304,7 @@ input:focus {
 .progress-bar-track {
   position: relative;
   width: 100%;
-  background: #e5e7eb;
+  background: var(--progress-track);
   border-radius: 99px;
   overflow: hidden;
 }
@@ -298,7 +322,6 @@ input:focus {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text);
-  mix-blend-mode: multiply;
 }
 
 /* ===== Job Detail ===== */
@@ -368,7 +391,7 @@ input:focus {
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  background: #f8f9fb;
+  background: var(--surface-hover);
   border-bottom: 1px solid var(--border);
   font-size: 0.95rem;
   font-weight: 600;
@@ -384,7 +407,7 @@ input:focus {
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-bottom: 1px solid #f1f3f5;
+  border-bottom: 1px solid var(--border-light);
   cursor: pointer;
   transition: background 0.1s;
 }
@@ -392,10 +415,10 @@ input:focus {
   border-bottom: none;
 }
 .milestone-row:hover {
-  background: #fafbfc;
+  background: var(--surface-hover);
 }
 .milestone-row.complete {
-  background: #f0fdf4;
+  background: var(--complete-bg);
 }
 .milestone-row.complete .milestone-title {
   color: var(--text-muted);
@@ -534,7 +557,7 @@ input:focus {
 }
 .weight-table th {
   font-weight: 600;
-  background: #f8f9fb;
+  background: var(--surface-hover);
 }
 .total-row td {
   border-top: 2px solid var(--border);
@@ -693,6 +716,57 @@ input:focus {
   box-shadow: var(--shadow-lg);
 }
 
+/* ===== App Top Bar ===== */
+.app-top-bar {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 900;
+}
+
+/* ===== Dark Mode Toggle ===== */
+.dark-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  min-width: 36px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dark-toggle:hover {
+  background: var(--surface-hover);
+}
+
+/* ===== Filter Bar ===== */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-bar select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  min-height: 36px;
+}
+.filter-bar select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
   .page {
@@ -711,6 +785,13 @@ input:focus {
   }
   .toolbar-actions {
     justify-content: flex-start;
+  }
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filter-bar select {
+    width: 100%;
   }
   .jobs-grid {
     grid-template-columns: 1fr;

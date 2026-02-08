@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getJobs, addJob, deleteJob, calcProgress, getNextMilestone,
-  getWeightedMode, getPhaseWeights, exportData, importData
+  getWeightedMode, getPhaseWeights, exportData, importData,
+  getJobFilters, saveJobFilters,
 } from '../store.ts';
 import type { Job } from '../types.ts';
+import type { JobFilters } from '../store.ts';
 import ProgressBar from '../components/ProgressBar.tsx';
 
 export default function JobsOverview() {
@@ -14,17 +16,83 @@ export default function JobsOverview() {
   const [jobName, setJobName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [filters, setFilters] = useState<JobFilters>(getJobFilters);
 
   const weighted = getWeightedMode();
   const weights = getPhaseWeights();
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return jobs;
-    const q = search.toLowerCase();
-    return jobs.filter(
-      j => j.jobName.toLowerCase().includes(q) || j.customerName.toLowerCase().includes(q)
-    );
-  }, [jobs, search]);
+  function updateFilter(patch: Partial<JobFilters>) {
+    const next = { ...filters, ...patch };
+    setFilters(next);
+    saveJobFilters(next);
+  }
+
+  // Compute progress for a job (cached per render via useMemo map)
+  const progressMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const j of jobs) {
+      map.set(j.id, calcProgress(j, weighted, weights));
+    }
+    return map;
+  }, [jobs, weighted, weights]);
+
+  const processed = useMemo(() => {
+    let result = [...jobs];
+
+    // Text search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        j => j.jobName.toLowerCase().includes(q) || j.customerName.toLowerCase().includes(q)
+      );
+    }
+
+    // Status filter
+    if (filters.status === 'completed') {
+      result = result.filter(j => progressMap.get(j.id) === 100);
+    } else if (filters.status === 'active') {
+      result = result.filter(j => (progressMap.get(j.id) ?? 0) < 100);
+    }
+
+    // Has Photos filter
+    if (filters.hasPhotos === 'with') {
+      result = result.filter(j => (j.photos?.length ?? 0) > 0);
+    } else if (filters.hasPhotos === 'without') {
+      result = result.filter(j => !j.photos || j.photos.length === 0);
+    }
+
+    // Sorting
+    const sort = filters.sort;
+    result.sort((a, b) => {
+      if (sort === 'newest') {
+        return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
+      }
+      if (sort === 'oldest') {
+        return (a.updatedAt || a.createdAt || '').localeCompare(b.updatedAt || b.createdAt || '');
+      }
+      if (sort === 'progress-high') {
+        return (progressMap.get(b.id) ?? 0) - (progressMap.get(a.id) ?? 0);
+      }
+      if (sort === 'progress-low') {
+        return (progressMap.get(a.id) ?? 0) - (progressMap.get(b.id) ?? 0);
+      }
+      if (sort === 'due-soonest') {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      }
+      if (sort === 'due-latest') {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return b.dueDate.localeCompare(a.dueDate);
+      }
+      return 0;
+    });
+
+    return result;
+  }, [jobs, search, filters, progressMap]);
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -101,6 +169,27 @@ export default function JobsOverview() {
         </div>
       </div>
 
+      <div className="filter-bar">
+        <select value={filters.sort} onChange={e => updateFilter({ sort: e.target.value })}>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="progress-high">Progress: High → Low</option>
+          <option value="progress-low">Progress: Low → High</option>
+          <option value="due-soonest">Due Date: Soonest</option>
+          <option value="due-latest">Due Date: Latest</option>
+        </select>
+        <select value={filters.status} onChange={e => updateFilter({ status: e.target.value })}>
+          <option value="all">All Jobs</option>
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select value={filters.hasPhotos} onChange={e => updateFilter({ hasPhotos: e.target.value })}>
+          <option value="all">All Photos</option>
+          <option value="with">With Photos</option>
+          <option value="without">Without Photos</option>
+        </select>
+      </div>
+
       {showForm && (
         <form className="add-job-form card" onSubmit={handleAdd}>
           <h3>New Job</h3>
@@ -122,17 +211,17 @@ export default function JobsOverview() {
         </form>
       )}
 
-      {filtered.length === 0 && (
+      {processed.length === 0 && (
         <div className="empty-state">
           {jobs.length === 0
             ? 'No jobs yet. Click "+ Add Job" to get started.'
-            : 'No jobs match your search.'}
+            : 'No jobs match your filters.'}
         </div>
       )}
 
       <div className="jobs-grid">
-        {filtered.map(job => {
-          const pct = calcProgress(job, weighted, weights);
+        {processed.map(job => {
+          const pct = progressMap.get(job.id) ?? 0;
           const next = getNextMilestone(job);
           return (
             <div key={job.id} className="card job-card">

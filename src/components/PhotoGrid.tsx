@@ -11,7 +11,8 @@ interface Props {
 export default function PhotoGrid({ photos, onPhotosChange }: Props) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [error, setError] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const captureRef = useRef<HTMLInputElement>(null);
 
   function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -42,7 +43,8 @@ export default function PhotoGrid({ photos, onPhotosChange }: Props) {
     });
 
     // Reset the input so the same file can be re-selected
-    if (inputRef.current) inputRef.current.value = '';
+    const target = e.target;
+    target.value = '';
   }
 
   function handleRemove(idx: number) {
@@ -55,14 +57,27 @@ export default function PhotoGrid({ photos, onPhotosChange }: Props) {
     <div className="photos-section card">
       <div className="photos-header">
         <h3>Photos</h3>
-        <button className="btn btn-primary btn-sm" onClick={() => inputRef.current?.click()}>
-          + Add Photo
+        <button className="btn btn-primary btn-sm" onClick={() => uploadRef.current?.click()}>
+          + Upload Photos
         </button>
+        <button className="btn btn-secondary btn-sm" onClick={() => captureRef.current?.click()}>
+          Take Photo
+        </button>
+        {/* Normal file picker (desktop + mobile gallery) */}
         <input
-          ref={inputRef}
+          ref={uploadRef}
           type="file"
-          accept="image/jpeg,image/png"
+          accept="image/*"
           multiple
+          hidden
+          onChange={handleFiles}
+        />
+        {/* Camera capture (mobile) */}
+        <input
+          ref={captureRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           hidden
           onChange={handleFiles}
         />

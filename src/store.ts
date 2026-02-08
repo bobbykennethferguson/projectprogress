@@ -176,6 +176,45 @@ export function importData(json: string): void {
   saveData(data);
 }
 
+// ---- Dark mode ----
+
+const DARK_MODE_KEY = 'job-tracker-dark-mode';
+
+export function getDarkMode(): boolean | null {
+  const val = localStorage.getItem(DARK_MODE_KEY);
+  if (val === 'true') return true;
+  if (val === 'false') return false;
+  return null; // no preference stored — use system
+}
+
+export function setDarkMode(on: boolean): void {
+  localStorage.setItem(DARK_MODE_KEY, String(on));
+}
+
+// ---- Job list filter preferences ----
+
+const FILTER_KEY = 'job-tracker-filters';
+
+export interface JobFilters {
+  sort: string;
+  status: string;
+  hasPhotos: string;
+}
+
+const DEFAULT_FILTERS: JobFilters = { sort: 'newest', status: 'all', hasPhotos: 'all' };
+
+export function getJobFilters(): JobFilters {
+  try {
+    const raw = localStorage.getItem(FILTER_KEY);
+    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return DEFAULT_FILTERS;
+}
+
+export function saveJobFilters(filters: JobFilters): void {
+  localStorage.setItem(FILTER_KEY, JSON.stringify(filters));
+}
+
 // ---- Progress calculation ----
 
 export function calcProgress(job: Job, weighted: boolean, phaseWeights: PhaseWeight[]): number {
