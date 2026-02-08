@@ -198,17 +198,26 @@ const FILTER_KEY = 'job-tracker-filters';
 export interface JobFilters {
   sort: string;
   status: string;
-  hasPhotos: string;
+  due: string;
+  progress: string;
 }
 
-const DEFAULT_FILTERS: JobFilters = { sort: 'newest', status: 'all', hasPhotos: 'all' };
+export const DEFAULT_FILTERS: JobFilters = { sort: 'recent', status: 'all', due: 'all', progress: 'all' };
 
 export function getJobFilters(): JobFilters {
   try {
     const raw = localStorage.getItem(FILTER_KEY);
-    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migrate old sort values
+      if (parsed.sort === 'newest') parsed.sort = 'recent';
+      if (parsed.sort === 'oldest') parsed.sort = 'recent';
+      // Drop removed fields
+      delete parsed.hasPhotos;
+      return { ...DEFAULT_FILTERS, ...parsed };
+    }
   } catch { /* ignore */ }
-  return DEFAULT_FILTERS;
+  return { ...DEFAULT_FILTERS };
 }
 
 export function saveJobFilters(filters: JobFilters): void {

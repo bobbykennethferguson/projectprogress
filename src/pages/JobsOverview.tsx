@@ -9,6 +9,7 @@ import type { Job } from '../types.ts';
 import type { JobFilters } from '../store.ts';
 import ProgressBar from '../components/ProgressBar.tsx';
 import QuickUpdatePanel from '../components/QuickUpdatePanel.tsx';
+import FilterBar from '../components/FilterBar.tsx';
 
 export default function JobsOverview() {
   const [jobs, setJobs] = useState<Job[]>(getJobs);
@@ -56,41 +57,78 @@ export default function JobsOverview() {
       result = result.filter(j => (progressMap.get(j.id) ?? 0) < 100);
     }
 
-    // Has Photos filter
-    if (filters.hasPhotos === 'with') {
-      result = result.filter(j => (j.photos?.length ?? 0) > 0);
-    } else if (filters.hasPhotos === 'without') {
-      result = result.filter(j => !j.photos || j.photos.length === 0);
+    // Due date filter
+    if (filters.due !== 'all') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().slice(0, 10);
+
+      if (filters.due === 'overdue') {
+        result = result.filter(j => j.dueDate && j.dueDate < todayStr);
+      } else if (filters.due === '7days') {
+        const future = new Date(today);
+        future.setDate(future.getDate() + 7);
+        const futureStr = future.toISOString().slice(0, 10);
+        result = result.filter(j => j.dueDate && j.dueDate >= todayStr && j.dueDate <= futureStr);
+      } else if (filters.due === '30days') {
+        const future = new Date(today);
+        future.setDate(future.getDate() + 30);
+        const futureStr = future.toISOString().slice(0, 10);
+        result = result.filter(j => j.dueDate && j.dueDate >= todayStr && j.dueDate <= futureStr);
+      } else if (filters.due === 'none') {
+        result = result.filter(j => !j.dueDate);
+      }
     }
 
-    // Sorting
+    // Progress filter
+    if (filters.progress !== 'all') {
+      if (filters.progress === '0') {
+        result = result.filter(j => (progressMap.get(j.id) ?? 0) === 0);
+      } else if (filters.progress === '1-99') {
+        result = result.filter(j => {
+          const p = progressMap.get(j.id) ?? 0;
+          return p >= 1 && p <= 99;
+        });
+      } else if (filters.progress === '100') {
+        result = result.filter(j => progressMap.get(j.id) === 100);
+      }
+    }
+
+    // Sorting with deterministic tie-breakers
     const sort = filters.sort;
     result.sort((a, b) => {
-      if (sort === 'newest') {
-        return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
+      let cmp = 0;
+
+      if (sort === 'recent') {
+        cmp = (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
+      } else if (sort === 'due-soonest') {
+        if (!a.dueDate && !b.dueDate) cmp = 0;
+        else if (!a.dueDate) cmp = 1;
+        else if (!b.dueDate) cmp = -1;
+        else cmp = a.dueDate.localeCompare(b.dueDate);
+      } else if (sort === 'due-latest') {
+        if (!a.dueDate && !b.dueDate) cmp = 0;
+        else if (!a.dueDate) cmp = 1;
+        else if (!b.dueDate) cmp = -1;
+        else cmp = b.dueDate.localeCompare(a.dueDate);
+      } else if (sort === 'progress-high') {
+        cmp = (progressMap.get(b.id) ?? 0) - (progressMap.get(a.id) ?? 0);
+      } else if (sort === 'progress-low') {
+        cmp = (progressMap.get(a.id) ?? 0) - (progressMap.get(b.id) ?? 0);
+      } else if (sort === 'name-az') {
+        cmp = a.jobName.localeCompare(b.jobName);
       }
-      if (sort === 'oldest') {
-        return (a.updatedAt || a.createdAt || '').localeCompare(b.updatedAt || b.createdAt || '');
+
+      // Tie-breaker 1: updatedAt desc
+      if (cmp === 0 && sort !== 'recent') {
+        cmp = (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
       }
-      if (sort === 'progress-high') {
-        return (progressMap.get(b.id) ?? 0) - (progressMap.get(a.id) ?? 0);
+      // Tie-breaker 2: name asc
+      if (cmp === 0 && sort !== 'name-az') {
+        cmp = a.jobName.localeCompare(b.jobName);
       }
-      if (sort === 'progress-low') {
-        return (progressMap.get(a.id) ?? 0) - (progressMap.get(b.id) ?? 0);
-      }
-      if (sort === 'due-soonest') {
-        if (!a.dueDate && !b.dueDate) return 0;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      }
-      if (sort === 'due-latest') {
-        if (!a.dueDate && !b.dueDate) return 0;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return b.dueDate.localeCompare(a.dueDate);
-      }
-      return 0;
+
+      return cmp;
     });
 
     return result;
@@ -171,26 +209,7 @@ export default function JobsOverview() {
         </div>
       </div>
 
-      <div className="filter-bar">
-        <select value={filters.sort} onChange={e => updateFilter({ sort: e.target.value })}>
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="progress-high">Progress: High → Low</option>
-          <option value="progress-low">Progress: Low → High</option>
-          <option value="due-soonest">Due Date: Soonest</option>
-          <option value="due-latest">Due Date: Latest</option>
-        </select>
-        <select value={filters.status} onChange={e => updateFilter({ status: e.target.value })}>
-          <option value="all">All Jobs</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-        </select>
-        <select value={filters.hasPhotos} onChange={e => updateFilter({ hasPhotos: e.target.value })}>
-          <option value="all">All Photos</option>
-          <option value="with">With Photos</option>
-          <option value="without">Without Photos</option>
-        </select>
-      </div>
+      <FilterBar filters={filters} onChange={updateFilter} />
 
       {showForm && (
         <form className="add-job-form card" onSubmit={handleAdd}>
